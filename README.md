@@ -1,6 +1,6 @@
-# elogcat.el [![Build Status](https://secure.travis-ci.org/magnars/elogcat.el.png)](http://travis-ci.org/magnars/elogcat.el)
+# elogcat.el
 
-logcat interface for emacs
+logcat interface for emacs based on android-mode.el
 
 ## Installation
 
@@ -26,7 +26,7 @@ They are written in [Ecukes](http://ecukes.info), a Cucumber for Emacs.
 
 You'll find the repo at:
 
-    https://github.com/magnars/elogcat.el
+    https://github.com/youngker/elogcat.el
 
 To fetch the test dependencies, install
 [carton](https://github.com/rejeep/carton) if you haven't already,
@@ -41,9 +41,9 @@ Run the tests with:
 
 ## License
 
-Copyright (C) 2013 Magnar Sveen
+Copyright (C) 2015 Youngjoo Lee
 
-Author: Magnar Sveen <magnars@gmail.com>
+Author: Youngjoo Lee <youngker@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
