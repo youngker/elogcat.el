@@ -69,18 +69,14 @@
   :type '(repeat string)
   :group 'elogcat)
 
-(defvar elogcat-filter-regexp "")
+(defvar elogcat-include-filter-regexp "")
+(defvar elogcat-exclude-filter-regexp "")
 
 (defconst elogcat-process-name "elogcat"
   "Name of elogcat process")
 
 (defcustom elogcat-buffer "*elogcat*"
   "Name for elogcat buffer"
-  :type 'string
-  :group 'elogcat)
-
-(defcustom elogcat-exclude-string ""
-  "Excluding string"
   :type 'string
   :group 'elogcat)
 
@@ -118,8 +114,27 @@
          (-concat elogcat-option-list '("-c")))
   (sleep-for 1)
   (elogcat-stop)
-  (elogcat)
-  )
+  (elogcat))
+
+(defun elogcat-clear-filter ()
+  "Clear the filter"
+  (interactive)
+  (elogcat-set-filter ""))
+
+(defun elogcat-set-filter (regexp-filter)
+  "Set the filter"
+  (interactive "MRegexp Filter: ")
+  (with-current-buffer elogcat-buffer
+    (let ((buffer-read-only nil)
+          (info-face (cdr (assoc "I" elogcat-face-alist)))
+          msg)
+      (goto-char (point-max))
+      (if (equal (length regexp-filter) 0)
+          (setq msg "\n\n*** Filter is cleared ***\n\n")
+        (setq msg (concat "\n\n*** Filter is changed to '" regexp-filter
+                          "' ***\n\n")))
+      (insert (propertize msg 'font-lock-face info-face))))
+  (setq elogcat-include-filter-regexp regexp-filter))
 
 (defun elogcat-process-filter (process output)
   "Process filter"
@@ -135,7 +150,7 @@
             (setq pos (match-end 0))
             (goto-char (point-max))
             (if (not (string-match "[Aa]udio" line))
-                (when (string-match elogcat-filter-regexp line)
+                (when (string-match elogcat-include-filter-regexp line)
                   (let* ((log-list (s-split-up-to "\s+" line 6))
                          (level (nth 4 log-list))
                          (level-face (cdr (or (assoc level elogcat-face-alist)
@@ -172,6 +187,7 @@
 
 (--each '(("C" . elogcat-erase-buffer)
           ("f" . elogcat-set-filter)
+          ("F" . occur)
           ("c" . elogcat-clear-filter)
           ("q" . elogcat-delete-window)
           ("e" . elogcat-switch-events)
