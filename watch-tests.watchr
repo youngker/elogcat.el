@@ -11,14 +11,7 @@ def run_all_tests
   puts result
 end
 
-def run_test(file)
-  system('clear')
-  result = run "./run-tests.sh #{file} --verbose"
-  puts result
-end
-
 run_all_tests
-watch('.*.feature') { |file| run_test file }
 watch('.*.el') { run_all_tests }
 
 # Ctrl-\

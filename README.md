@@ -1,4 +1,5 @@
-# elogcat.el
+# elogcat.el [![Build Status](https://secure.travis-ci.org/youngker/elogcat.el.png)](http://travis-ci.org/youngker/elogcat.el)
+
 
 logcat interface for emacs based on android-mode.el
 

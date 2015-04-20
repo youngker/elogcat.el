@@ -1,13 +1,20 @@
-#!/bin/sh -e
+#!/bin/sh
 
 cd "$(dirname "$0")"
 
-ECUKES_EMACS=${EMACS:-$(which emacs)}
-export ECUKES_EMACS
+set_default () {
+    eval "
+if [ -z \$$1 ]; then
+  $1=$2
+fi
+"
+}
+
+set_default EMACS "$(which emacs)"
 
 echo "*** Emacs version ***"
-echo "ECUKES_EMACS = $ECUKES_EMACS"
-"$ECUKES_EMACS" --version
+echo "EMACS =" $(which $EMACS)
+$EMACS --version
 echo
 
-exec ./run-tests.sh $TAGS
+exec ./run-tests.sh
