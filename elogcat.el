@@ -57,72 +57,67 @@
     ("W" . elogcat-warning-face)
     ("E" . elogcat-error-face)))
 
-(defcustom elogcat-option-list
-  (list "logcat"
-        "-v" "threadtime"
-        "-b" "main"
-        "-b" "events"
-        "-b" "system"
-        "-b" "radio"
-        )
-  "logcat options"
-  :type '(repeat string)
+(defcustom elogcat-logcat-command
+  "logcat -v threadtime -b main -b events -b system -b radio"
+  "DOC."
+  :group 'elogcat)
+
+(defcustom elogcat-klog-command
+  "cat /proc/kmsg"
+  "DOC."
   :group 'elogcat)
 
 (defvar elogcat-include-filter-regexp "")
 (defvar elogcat-exclude-filter-regexp "")
 
-(defconst elogcat-process-name "elogcat"
-  "Name of elogcat process")
+(defvar elogcat-enable-klog t)
+
+(defconst elogcat-process-name "elogcat")
 
 (defcustom elogcat-buffer "*elogcat*"
-  "Name for elogcat buffer"
-  :type 'string
+  "Name for elogcat buffer."
   :group 'elogcat)
 
-(defcustom elogcat-mode-line '(:eval (elogcat-mode-line-status-text))
-  "Mode line lighter for elogcat"
+(defcustom elogcat-mode-line '(:eval (elogcat-make-status))
+  "Mode line lighter for elogcat."
   :group 'elogcat
   :type 'sexp
   :risky t
   :package-version '(elogcat . "0.1.0"))
 
-(defun get-mode (option)
-  (if (-contains? elogcat-option-list option)
-      (s-word-initials option)
+(defun elogcat-get-log-buffer-status (buffer-name)
+  "Get a log buffer status by BUFFER-NAME."
+  (if (s-contains? buffer-name elogcat-logcat-command)
+      (s-word-initials buffer-name)
     "-"))
 
-(defun elogcat-mode-line-status-text (&optional status)
-  "Get a text describing STATUS for use in the mode line."
+(defun elogcat-make-status (&optional status)
+  "Get a log buffer STATUS for use in the mode line."
   (concat " elogcat["
-          (get-mode "main")
-          (get-mode "system")
-          (get-mode "events")
-          (get-mode "radio")
-          "]"))
+          (mapconcat (lambda (args) (elogcat-get-log-buffer-status args))
+                     '("main" "system" "events" "radio") "")
+          (if elogcat-enable-klog "k" "-") "]"))
 
 (defun elogcat-erase-buffer ()
-  "Clear elogcat buffer"
+  "Clear elogcat buffer."
   (interactive)
   (with-current-buffer elogcat-buffer
     (let ((buffer-read-only nil))
       (erase-buffer)))
-  (apply 'start-process
-         "elogcat-clear"
+  (start-process-shell-command "elogcat-clear"
          "*elogcat-clear*"
-         "adb"
-         (-concat elogcat-option-list '("-c")))
+                               (concat "adb " elogcat-logcat-command " -c"))
   (sleep-for 1)
   (elogcat-stop)
   (elogcat))
 
 (defun elogcat-clear-filter ()
-  "Clear the filter"
+  "Clear the filter."
   (interactive)
   (elogcat-set-filter ""))
 
 (defun elogcat-set-filter (regexp-filter)
-  "Set the filter"
+  "Set the filter to REGEXP-FILTER."
   (interactive "MRegexp Filter: ")
   (with-current-buffer elogcat-buffer
     (let ((buffer-read-only nil)
@@ -137,7 +132,7 @@
   (setq elogcat-include-filter-regexp regexp-filter))
 
 (defun elogcat-process-filter (process output)
-  "Process filter"
+  "Adb PROCESS make line from OUTPUT buffer."
   (with-current-buffer elogcat-buffer
     (let ((following (= (point-max) (point)))
           (buffer-read-only nil)
@@ -149,35 +144,51 @@
           (let ((line (substring output pos (match-beginning 0))))
             (setq pos (match-end 0))
             (goto-char (point-max))
-            (if (not (string-match "[Aa]udio" line))
-                (when (string-match elogcat-include-filter-regexp line)
+            (when (string-match-p elogcat-include-filter-regexp line)
+              (if (string-match-p "^\\([0-9][0-9]\\)-\\([0-9][0-9]\\)" line)
                   (let* ((log-list (s-split-up-to "\s+" line 6))
                          (level (nth 4 log-list))
                          (level-face (cdr (or (assoc level elogcat-face-alist)
                                               (assoc "I" elogcat-face-alist)))))
-                    (insert (propertize line 'font-lock-face level-face))
-                    (insert "\n"))))))
+                    (insert (propertize line 'font-lock-face level-face) "\n"))
+                (insert line "\n")))))
         (setq elogcat-pending-output (substring output pos)))
       (when following (goto-char (point-max))))))
 
-(defmacro elogcat-define-switch-option (sym option)
-  "Define function"
-  (let ((fun (intern (format "elogcat-switch-%s" sym)))
-        (doc (format "Switch to %s" option)))
+(defun elogcat-process-sentinel (process event)
+  "Test PROCESS EVENT."
+  (with-current-buffer elogcat-buffer
+    )
+  )
+
+(defun elogcat-toggle-kernel ()
+  "Toggle kernel log."
+    (interactive)
+    (setq elogcat-enable-klog (not elogcat-enable-klog))
+    (elogcat-stop)
+    (elogcat))
+
+(defmacro elogcat-define-toggle-function (sym buffer-name)
+  "Define a function with SYM and BUFFER-NAME."
+  (let ((fun (intern (format "elogcat-toggle-%s" sym)))
+        (doc (format "Switch to %s" buffer-name)))
     `(progn
        (defun ,fun () ,doc
               (interactive)
-              (-if-let (num (-elem-index ,option elogcat-option-list))
-                  (setq elogcat-option-list
-                        (-remove-at-indices (list (- num 1) num) elogcat-option-list))
-                (setq elogcat-option-list (-concat elogcat-option-list '("-b" ,option))))
+              (let ((option (concat "-b " ,buffer-name)))
+                (if (s-contains? option elogcat-logcat-command)
+                    (setq elogcat-logcat-command
+                          (mapconcat (lambda (args) (concat (s-trim args)))
+                                     (s-split option elogcat-logcat-command) " "))
+                  (setq elogcat-logcat-command
+                        (s-concat (s-trim elogcat-logcat-command) " " option))))
               (elogcat-stop)
               (elogcat)))))
 
-(elogcat-define-switch-option events "events")
-(elogcat-define-switch-option system "system")
-(elogcat-define-switch-option main "main")
-(elogcat-define-switch-option radio "radio")
+(elogcat-define-toggle-function events "events")
+(elogcat-define-toggle-function system "system")
+(elogcat-define-toggle-function main "main")
+(elogcat-define-toggle-function radio "radio")
 
 (defvar elogcat-mode-map nil
   "Keymap for elogcat minor mode.")
@@ -190,10 +201,11 @@
           ("F" . occur)
           ("c" . elogcat-clear-filter)
           ("q" . elogcat-delete-window)
-          ("e" . elogcat-switch-events)
-          ("s" . elogcat-switch-system)
-          ("m" . elogcat-switch-main)
-          ("r" . elogcat-switch-radio))
+          ("m" . elogcat-toggle-main)
+          ("s" . elogcat-toggle-system)
+          ("e" . elogcat-toggle-events)
+          ("r" . elogcat-toggle-radio)
+          ("k" . elogcat-toggle-kernel))
   (define-key elogcat-mode-map (read-kbd-macro (car it)) (cdr it)))
 
 (define-minor-mode elogcat-mode
@@ -202,26 +214,30 @@
   nil " elogcat" elogcat-mode-map)
 
 (defun elogcat-stop ()
-  "Stop the adb logcat process"
-  (-when-let (process (get-process "elogcat"))
-    (delete-process process)))
+  "Stop the adb logcat process."
+  (-when-let (proc (get-process "elogcat"))
+    (delete-process proc)))
 
 (defun elogcat ()
-  "Start the adb logcat process"
+  "Start the adb logcat process."
   (interactive)
-  (when (not (get-process "elogcat"))
-    (apply 'start-process
-     "elogcat"
-     elogcat-buffer
-     "adb"
-     elogcat-option-list)
-    (set-process-filter (get-process "elogcat") 'elogcat-process-filter)
+  (unless (get-process "elogcat")
+    (let ((proc (start-process-shell-command
+           "elogcat"
+           elogcat-buffer
+                 (concat "adb shell " (shell-quote-argument
+                                       (concat elogcat-logcat-command
+                                               (when elogcat-enable-klog
+                                                 (concat
+                                                  " & " elogcat-klog-command))))))))
+      (set-process-filter proc 'elogcat-process-filter)
+      (set-process-sentinel proc 'elogcat-process-sentinel)
     (with-current-buffer elogcat-buffer
       (elogcat-mode t)
       (setq buffer-read-only t)
       (font-lock-mode t))
     (switch-to-buffer elogcat-buffer)
-    (goto-char (point-max))))
+      (goto-char (point-max)))))
 
 (provide 'elogcat)
 ;;; elogcat.el ends here
