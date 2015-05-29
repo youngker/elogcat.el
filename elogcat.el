@@ -31,24 +31,24 @@
 (defvar elogcat-pending-output "")
 
 (defface elogcat-verbose-face '((t (:foreground "DodgerBlue")))
-  "Font Lock face used to highlight VERBOSE log records."
-  :group 'elogcat)
+         "Font Lock face used to highlight VERBOSE log records."
+         :group 'elogcat)
 
 (defface elogcat-debug-face '((t (:foreground "ForestGreen")))
-  "Font Lock face used to highlight DEBUG log records."
-  :group 'elogcat)
+         "Font Lock face used to highlight DEBUG log records."
+         :group 'elogcat)
 
 (defface elogcat-info-face '((t (:foreground "Gray45")))
-  "Font Lock face used to highlight INFO log records."
-  :group 'elogcat)
+         "Font Lock face used to highlight INFO log records."
+         :group 'elogcat)
 
 (defface elogcat-warning-face '((t (:foreground "Red")))
-  "Font Lock face used to highlight WARN log records."
-  :group 'elogcat)
+         "Font Lock face used to highlight WARN log records."
+         :group 'elogcat)
 
 (defface elogcat-error-face '((t (:foreground "Red" :bold t)))
-  "Font Lock face used to highlight ERROR log records."
-  :group 'elogcat)
+         "Font Lock face used to highlight ERROR log records."
+         :group 'elogcat)
 
 (defvar elogcat-face-alist
   '(("V" . elogcat-verbose-face)
@@ -88,8 +88,8 @@
 (defun elogcat-get-log-buffer-status (buffer-name)
   "Get a log buffer status by BUFFER-NAME."
   (if (s-contains? buffer-name elogcat-logcat-command)
-      (s-word-initials buffer-name)
-    "-"))
+      (concat (s-word-initials buffer-name) "|")
+    "-|"))
 
 (defun elogcat-make-status (&optional status)
   "Get a log buffer STATUS for use in the mode line."
@@ -105,7 +105,7 @@
     (let ((buffer-read-only nil))
       (erase-buffer)))
   (start-process-shell-command "elogcat-clear"
-         "*elogcat-clear*"
+                               "*elogcat-clear*"
                                (concat "adb " elogcat-logcat-command " -c"))
   (sleep-for 1)
   (elogcat-stop)
@@ -133,40 +133,39 @@
 
 (defun elogcat-process-filter (process output)
   "Adb PROCESS make line from OUTPUT buffer."
-  (with-current-buffer elogcat-buffer
-    (let ((following (= (point-max) (point)))
-          (buffer-read-only nil)
-          (pos 0)
-          (output (concat elogcat-pending-output
-                          (replace-regexp-in-string "" "" output))))
-      (save-excursion
-        (while (string-match "\n" output pos)
-          (let ((line (substring output pos (match-beginning 0))))
-            (setq pos (match-end 0))
-            (goto-char (point-max))
-            (when (string-match-p elogcat-include-filter-regexp line)
-              (if (string-match-p "^\\([0-9][0-9]\\)-\\([0-9][0-9]\\)" line)
-                  (let* ((log-list (s-split-up-to "\s+" line 6))
-                         (level (nth 4 log-list))
-                         (level-face (cdr (or (assoc level elogcat-face-alist)
-                                              (assoc "I" elogcat-face-alist)))))
-                    (insert (propertize line 'font-lock-face level-face) "\n"))
-                (insert line "\n")))))
-        (setq elogcat-pending-output (substring output pos)))
-      (when following (goto-char (point-max))))))
+  (when (get-buffer elogcat-buffer)
+    (with-current-buffer elogcat-buffer
+      (let ((following (= (point-max) (point)))
+            (buffer-read-only nil)
+            (pos 0)
+            (output (concat elogcat-pending-output
+                            (replace-regexp-in-string "" "" output))))
+        (save-excursion
+          (while (string-match "\n" output pos)
+            (let ((line (substring output pos (match-beginning 0))))
+              (setq pos (match-end 0))
+              (goto-char (point-max))
+              (when (string-match-p elogcat-include-filter-regexp line)
+                (if (string-match-p "^\\([0-9][0-9]\\)-\\([0-9][0-9]\\)" line)
+                    (let* ((log-list (s-split-up-to "\s+" line 6))
+                           (level (nth 4 log-list))
+                           (level-face (cdr (or (assoc level elogcat-face-alist)
+                                                (assoc "I" elogcat-face-alist)))))
+                      (insert (propertize line 'font-lock-face level-face) "\n"))
+                  (insert line "\n")))))
+          (setq elogcat-pending-output (substring output pos)))
+        (when following (goto-char (point-max)))))))
 
 (defun elogcat-process-sentinel (process event)
   "Test PROCESS EVENT."
-  (with-current-buffer elogcat-buffer
-    )
-  )
+)
 
 (defun elogcat-toggle-kernel ()
   "Toggle kernel log."
-    (interactive)
-    (setq elogcat-enable-klog (not elogcat-enable-klog))
-    (elogcat-stop)
-    (elogcat))
+  (interactive)
+  (setq elogcat-enable-klog (not elogcat-enable-klog))
+  (elogcat-stop)
+  (elogcat))
 
 (defmacro elogcat-define-toggle-function (sym buffer-name)
   "Define a function with SYM and BUFFER-NAME."
@@ -223,8 +222,8 @@
   (interactive)
   (unless (get-process "elogcat")
     (let ((proc (start-process-shell-command
-           "elogcat"
-           elogcat-buffer
+                 "elogcat"
+                 elogcat-buffer
                  (concat "adb shell " (shell-quote-argument
                                        (concat elogcat-logcat-command
                                                (when elogcat-enable-klog
@@ -232,11 +231,11 @@
                                                   " & " elogcat-klog-command))))))))
       (set-process-filter proc 'elogcat-process-filter)
       (set-process-sentinel proc 'elogcat-process-sentinel)
-    (with-current-buffer elogcat-buffer
-      (elogcat-mode t)
-      (setq buffer-read-only t)
-      (font-lock-mode t))
-    (switch-to-buffer elogcat-buffer)
+      (with-current-buffer elogcat-buffer
+        (elogcat-mode t)
+        (setq buffer-read-only t)
+        (font-lock-mode t))
+      (switch-to-buffer elogcat-buffer)
       (goto-char (point-max)))))
 
 (provide 'elogcat)
