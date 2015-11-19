@@ -1,44 +1,45 @@
-# elogcat.el [![Build Status](https://secure.travis-ci.org/youngker/elogcat.el.png)](http://travis-ci.org/youngker/elogcat.el)
-
+# elogcat.el
 
 logcat interface for emacs based on android-mode.el
 
+## ScreenShot
+
+
 ## Installation
 
-I highly recommend installing elogcat through elpa.
-
-It's available on [marmalade](http://marmalade-repo.org/) and
-[melpa](http://melpa.milkbox.net/):
+It's available on [Melpa](https://melpa.org/):
 
     M-x package-install elogcat
 
-You can also install the dependencies on your own, and just dump
-elogcat in your path somewhere:
+Requirements
 
- - <a href="https://github.com/magnars/s.el">s.el</a>
- - <a href="https://github.com/magnars/dash.el">dash.el</a>
+- **ADB**
+[Installing the Android SDK](https://developer.android.com/sdk/installing/)
 
-## Contribute
+You can add these lines to your init file.
 
-Yes, please do. :-)
+```elisp
+(require 'elogcat)
+```
 
-All changes must be accompanied by feature tests, or I might break it later.
-They are written in [Ecukes](http://ecukes.info), a Cucumber for Emacs.
 
-You'll find the repo at:
+Key bindings
 
-    https://github.com/youngker/elogcat.el
-
-To fetch the test dependencies, install
-[carton](https://github.com/rejeep/carton) if you haven't already,
-then:
-
-    $ cd /path/to/elogcat
-    $ carton
-
-Run the tests with:
-
-    $ ./run-tests.sh
+Key | Function
+--- | --------
+ C | elogcat-erase-buffer
+ i | elogcat-set-include-filter
+ x | elogcat-set-exclude-filter
+ I | elogcat-clear-include-filter
+ X | elogcat-clear-exclude-filter
+ g | elogcat-show-status
+ F | occur
+ q | elogcat-delete-window
+ m | elogcat-toggle-main
+ s | elogcat-toggle-system
+ e | elogcat-toggle-events
+ r | elogcat-toggle-radio
+ k | elogcat-toggle-kernel
 
 ## License
 
