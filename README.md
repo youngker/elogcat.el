@@ -4,6 +4,8 @@ logcat interface for emacs based on android-mode.el
 
 ## ScreenShot
 
+- **elogcat**
+<img align="center" src="https://raw.github.com/youngker/elogcat.el/master/elogcat.png">
 
 ## Installation
 
@@ -27,19 +29,18 @@ Key bindings
 
 Key | Function
 --- | --------
- C | elogcat-erase-buffer
- i | elogcat-set-include-filter
- x | elogcat-set-exclude-filter
- I | elogcat-clear-include-filter
- X | elogcat-clear-exclude-filter
- g | elogcat-show-status
- F | occur
- q | elogcat-delete-window
- m | elogcat-toggle-main
- s | elogcat-toggle-system
- e | elogcat-toggle-events
- r | elogcat-toggle-radio
- k | elogcat-toggle-kernel
+  C | elogcat-erase-buffer
+  i | elogcat-set-include-filter
+  x | elogcat-set-exclude-filter
+  I | elogcat-clear-include-filter
+  X | elogcat-clear-exclude-filter
+  g | elogcat-show-status
+  F | occur
+  m | elogcat-toggle-main
+  s | elogcat-toggle-system
+  e | elogcat-toggle-events
+  r | elogcat-toggle-radio
+  k | elogcat-toggle-kernel
 
 ## License
 

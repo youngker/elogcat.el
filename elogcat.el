@@ -4,6 +4,7 @@
 
 ;; Author: Youngjoo Lee <youngker@gmail.com>
 ;; Version: 0.1.0
+;; Keywords: tools
 ;; Package-Requires: ((s "1.9.0") (dash "2.10.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -112,7 +113,7 @@
   (elogcat))
 
 (defun elogcat-clear-filter (filter)
-  "Clear the filter."
+  "Clear the FILTER."
   (interactive)
   (let ((buffer-read-only nil)
         msg)
@@ -145,6 +146,7 @@
       (set filter regexp))))
 
 (defun elogcat-show-status ()
+  "Show current status."
   (interactive)
   (let ((buffer-read-only nil)
         msg)
@@ -156,21 +158,23 @@
     (insert (propertize msg 'font-lock-face (cdr (assoc "I" elogcat-face-alist))))))
 
 (defun elogcat-set-include-filter (regexp)
-  "set the include filter."
+  "Set the REGEXP for include filter."
   (interactive "MRegexp Include Filter: ")
   (elogcat-set-filter regexp 'elogcat-include-filter-regexp))
 
 (defun elogcat-set-exclude-filter (regexp)
-  "set the exclude filter."
+  "Set the REGEXP for exclude filter."
   (interactive "MRegexp Exclude Filter: ")
   (elogcat-set-filter regexp 'elogcat-exclude-filter-regexp))
 
 (defun elogcat-include-string-p (line)
+  "Matched include regexp in LINE."
   (if elogcat-include-filter-regexp
       (s-match elogcat-include-filter-regexp line)
     t))
 
 (defun elogcat-exclude-string-p (line)
+  "Matched exclude regexp in LINE."
   (if elogcat-exclude-filter-regexp
       (s-match elogcat-exclude-filter-regexp line)
     nil))
