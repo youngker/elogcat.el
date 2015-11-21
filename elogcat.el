@@ -273,6 +273,7 @@
   (-when-let (proc (get-process "elogcat"))
     (delete-process proc)))
 
+;;;###autoload
 (defun elogcat ()
   "Start the adb logcat process."
   (interactive)
