@@ -1,4 +1,4 @@
-;;; elogcat.el --- logcat interface for emacs
+;;; elogcat.el --- logcat interface
 
 ;; Copyright (C) 2015 Youngjoo Lee
 
