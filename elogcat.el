@@ -35,23 +35,23 @@
   "Interface with elogcat."
   :group 'external)
 
-(defface elogcat-verbose-face '((t (:foreground "DodgerBlue")))
+(defface elogcat-verbose-face '((t (:inherit default)))
          "Font Lock face used to highlight VERBOSE log records."
          :group 'elogcat)
 
-(defface elogcat-debug-face '((t (:foreground "ForestGreen")))
+(defface elogcat-debug-face '((t (:inherit font-lock-comment-face)))
          "Font Lock face used to highlight DEBUG log records."
          :group 'elogcat)
 
-(defface elogcat-info-face '((t (:foreground "Gray45")))
+(defface elogcat-info-face '((t (:inherit success)))
          "Font Lock face used to highlight INFO log records."
          :group 'elogcat)
 
-(defface elogcat-warning-face '((t (:foreground "Red")))
+(defface elogcat-warning-face '((t (:inherit warning)))
          "Font Lock face used to highlight WARN log records."
          :group 'elogcat)
 
-(defface elogcat-error-face '((t (:foreground "Red" :bold t)))
+(defface elogcat-error-face '((t (:inherit error)))
          "Font Lock face used to highlight ERROR log records."
          :group 'elogcat)
 
