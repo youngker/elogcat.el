@@ -191,7 +191,7 @@
             (buffer-read-only nil)
             (pos 0)
             (output (concat elogcat-pending-output
-                            (replace-regexp-in-string "" "" output))))
+                            (replace-regexp-in-string "\r" "" output))))
         (save-excursion
           (while (string-match "\n" output pos)
             (let ((line (substring output pos (match-beginning 0))))
