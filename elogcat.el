@@ -31,6 +31,10 @@
 ;;;; Declarations
 (defvar elogcat-pending-output "")
 
+(defgroup elogcat nil
+  "Interface with elogcat."
+  :group 'external)
+
 (defface elogcat-verbose-face '((t (:foreground "DodgerBlue")))
          "Font Lock face used to highlight VERBOSE log records."
          :group 'elogcat)
