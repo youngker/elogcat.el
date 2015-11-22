@@ -1,6 +1,6 @@
-# elogcat.el
+# elogcat.el [![MELPA](http://melpa.org/packages/elogcat-badge.svg)](http://melpa.org/#/elogcat)
 
-logcat interface for emacs based on android-mode.el
+logcat interface for emacs based on [android-mode](https://github.com/remvee/android-mode)
 
 ## ScreenShot
 
@@ -15,7 +15,8 @@ It's available on [Melpa](https://melpa.org/):
 
 Requirements
 
-- **ADB**
+- **adb**
+
 [Installing the Android SDK](https://developer.android.com/sdk/installing/)
 
 You can add these lines to your init file.
@@ -29,18 +30,18 @@ Key bindings
 
 Key | Function
 --- | --------
-  C | elogcat-erase-buffer
-  i | elogcat-set-include-filter
-  x | elogcat-set-exclude-filter
-  I | elogcat-clear-include-filter
-  X | elogcat-clear-exclude-filter
-  g | elogcat-show-status
-  F | occur
-  m | elogcat-toggle-main
-  s | elogcat-toggle-system
-  e | elogcat-toggle-events
-  r | elogcat-toggle-radio
-  k | elogcat-toggle-kernel
+<kbd>C</kbd> | elogcat-erase-buffer
+<kbd>i</kbd> | elogcat-set-include-filter
+<kbd>x</kbd> | elogcat-set-exclude-filter
+<kbd>I</kbd> | elogcat-clear-include-filter
+<kbd>X</kbd> | elogcat-clear-exclude-filter
+<kbd>g</kbd> | elogcat-show-status
+<kbd>F</kbd> | occur
+<kbd>m</kbd> | elogcat-toggle-main
+<kbd>s</kbd> | elogcat-toggle-system
+<kbd>e</kbd> | elogcat-toggle-events
+<kbd>r</kbd> | elogcat-toggle-radio
+<kbd>k</kbd> | elogcat-toggle-kernel
 
 ## License
 
