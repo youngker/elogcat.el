@@ -22,7 +22,8 @@ Requirements
 You can add these lines to your init file.
 
 ```elisp
-(require 'elogcat)
+(use-package elogcat
+  :commands elogcat)
 ```
 
 
@@ -37,15 +38,17 @@ Key | Function
 <kbd>X</kbd> | elogcat-clear-exclude-filter
 <kbd>g</kbd> | elogcat-show-status
 <kbd>F</kbd> | occur
+<kbd>q</kbd> | elogcat-exit
 <kbd>m</kbd> | elogcat-toggle-main
 <kbd>s</kbd> | elogcat-toggle-system
-<kbd>e</kbd> | elogcat-toggle-events
 <kbd>r</kbd> | elogcat-toggle-radio
+<kbd>e</kbd> | elogcat-toggle-events
+<kbd>c</kbd> | elogcat-toggle-crash
 <kbd>k</kbd> | elogcat-toggle-kernel
 
 ## License
 
-Copyright (C) 2015 Youngjoo Lee
+Copyright (C) 2023 Youngjoo Lee
 
 Author: Youngjoo Lee <youngker@gmail.com>
 
