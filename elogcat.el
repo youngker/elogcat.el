@@ -3,7 +3,6 @@
 ;; Copyright (C) 2023 Youngjoo Lee
 
 ;; Author: Youngjoo Lee <youngker@gmail.com>
-;; Maintainer: Misaka <chuxubank@qq.com>
 ;; Version: 0.3.0
 ;; Keywords: tools
 ;; Package-Requires: ((s "1.9.0") (dash "2.10.0"))
