@@ -1,9 +1,9 @@
-;;; elogcat.el --- logcat interface
+;;; elogcat.el --- logcat interface  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2023 Youngjoo Lee
 
 ;; Author: Youngjoo Lee <youngker@gmail.com>
-;; Version: 0.2.0
+;; Version: 0.3.0
 ;; Keywords: tools
 ;; Package-Requires: ((s "1.9.0") (dash "2.10.0"))
 
@@ -27,6 +27,7 @@
 ;;; Code:
 (require 's)
 (require 'dash)
+(require 'cl-lib)
 
 ;;;; Declarations
 (defvar elogcat-pending-output "")
@@ -56,7 +57,7 @@
   :group 'elogcat)
 
 (defface elogcat-fatal-face '((t (:inherit error)))
-  "Font Lock face used to highlight ERROR log records."
+  "Font Lock face used to highlight FATAL log records."
   :group 'elogcat)
 
 (defvar elogcat-face-alist
@@ -67,19 +68,35 @@
     ("E" . elogcat-error-face)
     ("F" . elogcat-fatal-face)))
 
+(defconst elogcat-level-priority '("V" "D" "I" "W" "E" "F")
+  "Log levels in ascending priority order.")
+
 (defcustom elogcat-logcat-command
   "logcat -v threadtime -b main -b system -b radio -b events -b crash -b kernel"
   "Logcat command."
-  :group 'elogcat)
+  :group 'elogcat
+  :type 'string)
+
+(defcustom elogcat-default-tail 1
+  "Default number of historical lines to show with `-T'.
+Set to nil to replay the full ring buffer by default."
+  :group 'elogcat
+  :type '(choice (const :tag "Full history" nil)
+                 (integer :tag "Number of lines")))
 
 (defvar elogcat-include-filter-regexp nil)
 (defvar elogcat-exclude-filter-regexp nil)
+(defvar elogcat-min-level "V"
+  "Minimum log level to display.  One of V D I W E F.")
+(defvar elogcat-package-filter nil
+  "Current package filter string shown in mode line, e.g. \"com.example:1234\".")
 
 (defconst elogcat-process-name "elogcat")
 
 (defcustom elogcat-buffer "*elogcat*"
   "Name for elogcat buffer."
-  :group 'elogcat)
+  :group 'elogcat
+  :type 'string)
 
 (defcustom elogcat-mode-line '(:eval (elogcat-make-status))
   "Mode line lighter for elogcat."
@@ -95,11 +112,15 @@
         (concat (s-word-initials buffer) end)
       (concat "-" end))))
 
-(defun elogcat-make-status (&optional status)
-  "Get a log buffer STATUS for use in the mode line."
-  (format " elogcat[%s]"
-          (mapconcat (lambda (args) (elogcat-get-log-buffer-status args))
-                     '("main" "system" "radio" "events" "crash" "kernel") "")))
+(defun elogcat-make-status (&optional _status)
+  "Get a log buffer status for use in the mode line."
+  (format " elogcat[%s]%s<%s>"
+          (mapconcat #'elogcat-get-log-buffer-status
+                     '("main" "system" "radio" "events" "crash" "kernel") "")
+          (if elogcat-package-filter
+              (format "(%s)" elogcat-package-filter)
+            "")
+          elogcat-min-level))
 
 (defun elogcat-erase-buffer ()
   "Clear elogcat buffer."
@@ -121,7 +142,7 @@
     (goto-char (point-max))
     (insert (propertize
              (concat "--------- " (symbol-name filter) " is cleared\n")
-             'font-lock-face (cdr (assoc "V" elogcat-face-alist))))
+             'face (cdr (assoc "V" elogcat-face-alist))))
     (set filter nil)))
 
 (defun elogcat-clear-include-filter ()
@@ -130,7 +151,7 @@
   (elogcat-clear-filter 'elogcat-include-filter-regexp))
 
 (defun elogcat-clear-exclude-filter ()
-  "Clear the include filter."
+  "Clear the exclude filter."
   (interactive)
   (elogcat-clear-filter 'elogcat-exclude-filter-regexp))
 
@@ -142,7 +163,7 @@
       (goto-char (point-max))
       (insert (propertize
                (concat "--------- " (symbol-name filter) " '" regexp "'\n")
-               'font-lock-face info-face))
+               'face info-face))
       (set filter regexp))))
 
 (defun elogcat-show-status ()
@@ -153,8 +174,9 @@
     (insert (propertize
              (concat "--------- "
                      "Include: '" elogcat-include-filter-regexp "' , "
-                     "eXclude: '" elogcat-exclude-filter-regexp "'\n")
-             'font-lock-face (cdr (assoc "V" elogcat-face-alist))))))
+                     "eXclude: '" elogcat-exclude-filter-regexp "' , "
+                     "Level: '" elogcat-min-level "'\n")
+             'face (cdr (assoc "V" elogcat-face-alist))))))
 
 (defun elogcat-set-include-filter (regexp)
   "Set the REGEXP for include filter."
@@ -166,43 +188,72 @@
   (interactive "MRegexp Exclude Filter: ")
   (elogcat-set-filter regexp 'elogcat-exclude-filter-regexp))
 
-(defun elogcat-include-string-p (line)
-  "Matched include regexp in LINE."
-  (if elogcat-include-filter-regexp
-      (s-match elogcat-include-filter-regexp line)
-    t))
-
-(defun elogcat-exclude-string-p (line)
-  "Matched exclude regexp in LINE."
-  (if elogcat-exclude-filter-regexp
-      (s-match elogcat-exclude-filter-regexp line)
-    nil))
+(defun elogcat-set-level (level)
+  "Set minimum log LEVEL filter.
+Only lines at or above this level will be displayed."
+  (interactive
+   (list (completing-read
+          (format "Min level (current: %s): " elogcat-min-level)
+          '("V - Verbose" "D - Debug" "I - Info"
+            "W - Warning" "E - Error" "F - Fatal")
+          nil t)))
+  (setq elogcat-min-level (substring level 0 1))
+  (message "elogcat: min level set to %s" elogcat-min-level))
 
 (defun elogcat-process-filter (process output)
-  "Adb PROCESS make line from OUTPUT buffer."
+  "Adb PROCESS make line from OUTPUT buffer.
+Batch-inserts all matching lines in one operation for speed.
+Only auto-scrolls windows whose point was already at the tail;
+if the user scrolled away the window stays put."
   (when (get-buffer elogcat-buffer)
     (with-current-buffer elogcat-buffer
-      (let ((following (= (point-max) (point)))
-            (buffer-read-only nil)
-            (pos 0)
-            (output (concat elogcat-pending-output
-                            (replace-regexp-in-string "\r" "" output))))
-        (save-excursion
-          (while (string-match "\n" output pos)
-            (let ((line (substring output pos (match-beginning 0))))
-              (setq pos (match-end 0))
-              (goto-char (point-max))
-              (when (and (elogcat-include-string-p line)
-                         (not (elogcat-exclude-string-p line)))
-                (if (string-match-p "^\\([0-9][0-9]\\)-\\([0-9][0-9]\\)" line)
-                    (let* ((log-list (s-split-up-to "\s+" line 6))
-                           (level (nth 4 log-list))
-                           (level-face (cdr (or (assoc level elogcat-face-alist)
-                                                (assoc "I" elogcat-face-alist)))))
-                      (insert (propertize line 'font-lock-face level-face) "\n"))
-                  (insert line "\n")))))
-          (setq elogcat-pending-output (substring output pos)))
-        (when following (goto-char (point-max)))))))
+      (let* ((old-max (point-max))
+             (following-wins
+              (cl-loop for win in (get-buffer-window-list elogcat-buffer nil t)
+                       when (>= (window-point win) old-max)
+                       collect win))
+             (gc-cons-threshold most-positive-fixnum)
+             (inhibit-redisplay t)
+             (buffer-read-only nil)
+             (raw (concat elogcat-pending-output output))
+             (output (if (string-search "\r" raw)
+                         (string-replace "\r" "" raw)
+                       raw))
+             (include elogcat-include-filter-regexp)
+             (exclude elogcat-exclude-filter-regexp)
+             (min-level-idx (or (cl-position elogcat-min-level
+                                             elogcat-level-priority
+                                             :test #'string=) 0))
+             (pos 0)
+             (chunks nil))
+        (while (string-match "\n" output pos)
+          (let* ((end (match-beginning 0))
+                 (line (substring output pos end)))
+            (setq pos (match-end 0))
+            (when (and (or (null include) (string-match-p include line))
+                       (or (null exclude) (not (string-match-p exclude line))))
+              (let ((formatted
+                     (if (string-match
+                          "^[0-9][0-9]-[0-9][0-9] +[0-9:.]+  *[0-9]+  *[0-9]+ \\([VDIWEF]\\) "
+                          line)
+                         (let* ((lvl (match-string 1 line))
+                                (face (cdr (or (assoc lvl elogcat-face-alist)
+                                               (assoc "I" elogcat-face-alist)))))
+                           (when (>= (or (cl-position lvl elogcat-level-priority
+                                                      :test #'string=) 0)
+                                     min-level-idx)
+                             (propertize (concat line "\n") 'face face)))
+                       (concat line "\n"))))
+                (when formatted
+                  (push formatted chunks))))))
+        (setq elogcat-pending-output (substring output pos))
+        (when chunks
+          (save-excursion
+            (goto-char (point-max))
+            (insert (apply #'concat (nreverse chunks)))))
+        (let ((new-max (point-max)))
+          (dolist (win following-wins)
+            (set-window-point win new-max)))))))
 
 (defun elogcat-process-sentinel (process event)
   "Test PROCESS EVENT.")
@@ -244,6 +295,9 @@
           ("x" . elogcat-set-exclude-filter)
           ("I" . elogcat-clear-include-filter)
           ("X" . elogcat-clear-exclude-filter)
+          ("L" . elogcat-set-level)
+          ("P" . elogcat-toggle-package)
+          ("S" . elogcat-save-buffer)
           ("g" . elogcat-show-status)
           ("F" . occur)
           ("q" . elogcat-exit)
@@ -270,32 +324,80 @@
       (sleep-for 0.1))
     (kill-buffer buf)))
 
+(defun elogcat-toggle-package (pkg)
+  "Toggle filtering logcat output by Android package PKG.
+Interactively, select from installed third-party packages.
+If the selected package is already filtered, remove the filter."
+  (interactive
+   (list (completing-read
+          "Select package: "
+          (mapcar (lambda (name)
+                    (replace-regexp-in-string "package:" "" name))
+                  (split-string
+                   (string-trim
+                    (shell-command-to-string "adb shell pm list package -3"))
+                   "\n")))))
+  (let ((pid (string-trim
+              (shell-command-to-string (concat "adb shell pidof " pkg))))
+        (option " --pid="))
+    (when (string-empty-p pid)
+      (error "App %s is not running" pkg))
+    (if (string-match (format "\\(%s\\)\\([0-9]*\\)"
+                              (regexp-quote option))
+                      elogcat-logcat-command)
+        (setq elogcat-logcat-command
+              (if (string= (match-string 2 elogcat-logcat-command) pid)
+                  (progn (setq elogcat-package-filter nil)
+                         (replace-match "" nil nil elogcat-logcat-command))
+                (setq elogcat-package-filter (format "%s:%s" pkg pid))
+                (replace-match pid nil nil elogcat-logcat-command 2)))
+      (setq elogcat-logcat-command (concat elogcat-logcat-command option pid))
+      (setq elogcat-package-filter (format "%s:%s" pkg pid))))
+  (let ((buffer-read-only nil))
+    (erase-buffer))
+  (elogcat-stop)
+  (elogcat))
+
 (defun elogcat-stop ()
   "Stop the adb logcat process."
   (-when-let (proc (get-process "elogcat"))
     (delete-process proc)))
 
 ;;;###autoload
-(defun elogcat ()
-  "Start the adb logcat process."
-  (interactive)
+(defun elogcat (&optional arg)
+  "Start the adb logcat process.
+Without prefix, show the last `elogcat-default-tail' lines then stream.
+With numeric prefix N, show the last N lines then stream.
+With bare \\[universal-argument], replay full ring buffer history."
+  (interactive "P")
   (unless (get-process "elogcat")
-    (let ((proc (start-process-shell-command
-                 "elogcat"
-                 elogcat-buffer
-                 (concat "adb shell "
-                         (shell-quote-argument
-                          (concat elogcat-logcat-command
-                                  (unless (s-contains? "-b" elogcat-logcat-command)
-                                    " -s")))))))
-      (set-process-filter proc 'elogcat-process-filter)
-      (set-process-sentinel proc 'elogcat-process-sentinel)
+    (let* ((tail-arg (cond
+                      ((consp arg) "")
+                      (arg (format " -T %d" (prefix-numeric-value arg)))
+                      (elogcat-default-tail
+                       (format " -T %d" elogcat-default-tail))
+                      (t "")))
+           (cmd (concat elogcat-logcat-command
+                        (unless (s-contains? "-b" elogcat-logcat-command)
+                          " -s")
+                        tail-arg))
+           (proc (start-process-shell-command
+                  "elogcat" elogcat-buffer
+                  (concat "adb shell " (shell-quote-argument cmd)))))
+      (set-process-filter proc #'elogcat-process-filter)
+      (set-process-sentinel proc #'elogcat-process-sentinel)
       (with-current-buffer elogcat-buffer
         (elogcat-mode t)
         (setq buffer-read-only t)
-        (font-lock-mode t))
+        (font-lock-mode -1))
       (switch-to-buffer elogcat-buffer)
       (goto-char (point-max)))))
+
+(defun elogcat-save-buffer ()
+  "Save the current elogcat buffer to a file and stop the logcat process."
+  (interactive)
+  (save-buffer)
+  (elogcat-stop))
 
 (provide 'elogcat)
 ;;; elogcat.el ends here
